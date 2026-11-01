@@ -469,6 +469,12 @@
     var buildingWallDeg = 0.0;
     var osmBuildingDetected = false;
     var indoorCompassOffsetDeg = 0.0;
+
+    // Android-Kompass: kreisförmige Glättung über 359°/0° hinweg.
+    var smoothedHeadingSin = null;
+    var smoothedHeadingCos = null;
+    var lastAbsoluteSensorAt = 0;
+    var orientationListenersStarted = false;
     var map = null;
     var userMarker = null;
     var qiblaLine = null;
@@ -1309,14 +1315,84 @@
     function onSliderHeading(val) {
       hasLiveHeading = true;
       rawTrueHeading = parseFloat(val) || 0;
+      smoothedHeadingSin = null;
+      smoothedHeadingCos = null;
       trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
       document.getElementById('sliderLabel').textContent =
         'Blickrichtung prüfen / simulieren: ' + trueHeading.toFixed(1).replace('.', ',') + '° (Ziel Qibla: ' + qiblaDeg.toFixed(1).replace('.', ',') + '°)';
       renderUI();
     }
 
+    function normalizeHeading(deg) {
+      return ((deg % 360.0) + 360.0) % 360.0;
+    }
+
+    // Kreisförmiger Filter: 359° und 1° werden nahe 0° gemittelt.
+    function smoothCompassHeading(deg) {
+      var rad = normalizeHeading(deg) * Math.PI / 180.0;
+      var sampleSin = Math.sin(rad);
+      var sampleCos = Math.cos(rad);
+      var alpha = 0.18; // kleiner = ruhiger, aber etwas träger
+
+      if (smoothedHeadingSin === null || smoothedHeadingCos === null) {
+        smoothedHeadingSin = sampleSin;
+        smoothedHeadingCos = sampleCos;
+      } else {
+        smoothedHeadingSin = (1 - alpha) * smoothedHeadingSin + alpha * sampleSin;
+        smoothedHeadingCos = (1 - alpha) * smoothedHeadingCos + alpha * sampleCos;
+      }
+
+      return normalizeHeading(Math.atan2(smoothedHeadingSin, smoothedHeadingCos) * 180.0 / Math.PI);
+    }
+
+    function applyOrientationHeading(deg, accuracyText) {
+      if (!isFinite(deg)) return;
+
+      rawTrueHeading = normalizeHeading(deg);
+      var filteredHeading = smoothCompassHeading(rawTrueHeading);
+      trueHeading = normalizeHeading(filteredHeading + indoorCompassOffsetDeg);
+
+      var slider = document.getElementById('headingSlider');
+      if (slider) slider.value = String(Math.round(trueHeading) % 360);
+
+      var label = document.getElementById('sliderLabel');
+      if (label) {
+        label.textContent = 'Live-Smartphone-Kompass: ' +
+          trueHeading.toFixed(1).replace('.', ',') + '°';
+      }
+      if (accuracyText) document.getElementById('compAcc').textContent = accuracyText;
+
+      hasLiveHeading = true;
+      renderUI();
+    }
+
+    function handleOrientation(e) {
+      if (!e) return;
+
+      if (typeof e.webkitCompassHeading === 'number') {
+        var acc = e.webkitCompassAccuracy;
+        applyOrientationHeading(
+          e.webkitCompassHeading,
+          (acc && acc > 0) ? ('iOS ±' + Math.round(acc) + '°') : 'Aktiv (iOS)'
+        );
+        return;
+      }
+
+      if (typeof e.alpha !== 'number' || e.alpha === null) return;
+
+      // Relative Messwerte dürfen den absoluten Nord-Kompass nicht überschreiben.
+      if (e.type === 'deviceorientation' && e.absolute !== true) return;
+
+      var magHeading = (360.0 - e.alpha) % 360.0;
+      var heading = normalizeHeading(magHeading + magDeclination);
+      applyOrientationHeading(
+        heading,
+        'Aktiv (absoluter Sensor; Dekl. ' +
+          (magDeclination >= 0 ? '+' : '') + magDeclination.toFixed(1) + '°)'
+      );
+    }
+
     function enableSensors() {
-      // Entsperrt Web-Audio unter iOS/Android direkt beim Tippen
       try {
         var Ctx = window.AudioContext || window.webkitAudioContext;
         if (Ctx && !audioCtx) audioCtx = new Ctx();
@@ -1338,49 +1414,48 @@
             var box = document.getElementById('manualBox');
             box.className = 'manual-box card-block open';
           },
-          { enableHighAccuracy: true, timeout: 10000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 }
         );
       } else {
         document.getElementById('gpsAcc').textContent = 'Nicht verfügbar';
       }
 
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (orientationListenersStarted) return;
+      if (typeof DeviceOrientationEvent === 'undefined') {
+        document.getElementById('compAcc').textContent = 'Sensor nicht verfügbar';
+        return;
+      }
+      orientationListenersStarted = true;
+
+      // iOS verlangt eine Freigabe durch den Benutzer.
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission().then(function(state) {
           if (state === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation, true);
+            window.addEventListener('deviceorientation', handleOrientation, false);
           } else {
+            orientationListenersStarted = false;
             document.getElementById('compAcc').textContent = 'Abgelehnt (Regler nutzen)';
           }
         }).catch(function() {
-          document.getElementById('compAcc').textContent = 'HTTPS für iOS-Sensor nötig';
+          orientationListenersStarted = false;
+          document.getElementById('compAcc').textContent = 'Sensorfreigabe nicht möglich';
         });
       } else {
-        window.addEventListener('deviceorientationabsolute', handleOrientation, true);
-        window.addEventListener('deviceorientation', handleOrientation, true);
-      }
-    }
+        // Android Chrome: absolute Nordrichtung bevorzugen.
+        window.addEventListener('deviceorientationabsolute', function(e) {
+          lastAbsoluteSensorAt = Date.now();
+          handleOrientation(e);
+        }, false);
 
-    function handleOrientation(e) {
-      if (typeof e.webkitCompassHeading === 'number') {
-        hasLiveHeading = true;
-        rawTrueHeading = e.webkitCompassHeading;
-        trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
-        var acc = e.webkitCompassAccuracy;
-        document.getElementById('compAcc').textContent = (acc && acc > 0) ? ('iOS ±' + Math.round(acc) + '°') : 'Aktiv (iOS)';
-      } else if (e.alpha !== null && typeof e.alpha === 'number') {
-        hasLiveHeading = true;
-        var magHeading = (360.0 - e.alpha) % 360.0;
-        rawTrueHeading = (magHeading + magDeclination + 360.0) % 360.0;
-        trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
-        document.getElementById('compAcc').textContent =
-          'Aktiv (Dekl. ' + (magDeclination >= 0 ? '+' : '') + magDeclination.toFixed(1) + '°)';
-      } else {
-        return;
+        // Fallback nur bei ausdrücklich absoluten Daten.
+        window.addEventListener('deviceorientation', function(e) {
+          if (e.absolute === true && Date.now() - lastAbsoluteSensorAt > 1500) {
+            handleOrientation(e);
+          }
+        }, false);
       }
-      document.getElementById('headingSlider').value = Math.round(trueHeading);
-      document.getElementById('sliderLabel').textContent =
-        'Live-Smartphone-Kompass: ' + trueHeading.toFixed(1).replace('.', ',') + '°';
-      renderUI();
+
+      document.getElementById('compAcc').textContent = 'Warte auf Kompasssensor…';
     }
 
     // Sofort beim Öffnen Kompass, Qibla-Winkel, Diyanet-Gebetszeiten, OSM-Hauswandwinkel und Karte initialisieren!
