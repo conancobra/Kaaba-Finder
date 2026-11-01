@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Kaaba Finder – Qibla Kompass, Diyanet Gebetszeiten &amp; OpenStreetMap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #071B15;
+      color: #F3F8F5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      padding: 14px 14px 28px 14px;
+    }
+    .container {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .card-block {
+      margin-bottom: 12px;
+    }
+    .header {
+      background: linear-gradient(135deg, #0D2920, #13382C);
+      border: 1px solid rgba(229, 184, 75, 0.5);
+      border-radius: 20px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #F6D985;
+      margin: 0;
+    }
+    .sub {
+      font-size: 12px;
+      color: #A9C3B9;
+      margin: 4px 0 0 0;
+    }
+    .qibla-badge {
+      text-align: right;
+      background-color: rgba(7, 27, 21, 0.82);
+      padding: 8px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(229, 184, 75, 0.35);
+    }
+    .qibla-deg {
+      font-size: 22px;
+      font-weight: 800;
+      color: #E5B84B;
+      font-family: monospace;
+    }
+    .status-row {
+      display: flex;
+      gap: 8px;
+    }
+    .chip {
+      flex: 1;
+      background-color: #13382C;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 12px;
+      color: #A9C3B9;
+      border: 1px solid rgba(229, 184, 75, 0.25);
+    }
+    .chip strong {
+      display: block;
+      font-size: 14px;
+      margin-top: 3px;
+      color: #F6D985;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      flex: 1;
+      min-height: 46px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 10px 14px;
+    }
+    .btn-primary {
+      background-color: #E5B84B;
+      color: #071B15;
+    }
+    .btn-secondary {
+      background-color: #13382C;
+      color: #F3F8F5;
+      border: 1px solid rgba(229, 184, 75, 0.65);
+    }
+    .stop-banner {
+      display: none;
+      background-color: #064E3B;
+      border: 2px solid #34D399;
+      border-radius: 18px;
+      padding: 14px 16px;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    }
+    .stop-banner.active {
+      display: flex;
+    }
+    .green-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-color: #34D399;
+      color: #064E3B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+    .guidance-banner {
+      background-color: #13382C;
+      border: 1px solid rgba(229, 184, 75, 0.45);
+      border-radius: 16px;
+      padding: 13px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 15px;
+      color: #F3F8F5;
+    }
+    .compass-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 4px 0;
+    }
+    #compass {
+      width: 280px;
+      height: 280px;
+      max-width: 82vw;
+      max-height: 82vw;
+      display: block;
+    }
+    .slider-card {
+      background-color: #13382C;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    .slider-card label {
+      display: block;
+      font-size: 12px;
+      color: #38BDF8;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .slider-card input[type="range"] {
+      width: 100%;
+      accent-color: #E5B84B;
+    }
+    .manual-box {
+      display: none;
+      background-color: #13382C;
+      border: 1px solid rgba(229, 184, 75, 0.5);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    .manual-box.open {
+      display: block;
+    }
+    .input-grid {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .input-grid input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(229, 184, 75, 0.5);
+      background-color: #071B15;
+      color: #F3F8F5;
+      font-size: 14px;
+    }
+    /* Diyanet 5 Gebetszeiten Karte */
+    .prayer-card {
+      background: linear-gradient(145deg, #0D2920, #13382C);
+      border: 1.5px solid rgba(229, 184, 75, 0.55);
+      border-radius: 20px;
+      padding: 15px;
+    }
+    .prayer-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .prayer-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #F6D985;
+      margin: 0;
+    }
+    .prayer-sub {
+      font-size: 11px;
+      color: #A9C3B9;
+      margin-top: 2px;
+    }
+    .countdown-pill {
+      background-color: #071B15;
+      border: 1px solid rgba(52, 211, 153, 0.6);
+      border-radius: 12px;
+      padding: 7px 11px;
+      text-align: right;
+    }
+    .countdown-label {
+      font-size: 10px;
+      color: #A9C3B9;
+    }
+    .countdown-time {
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: 800;
+      color: #34D399;
+    }
+    .prayer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 10px 0;
+    }
+    .prayer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: rgba(7, 27, 21, 0.65);
+      border: 1px solid rgba(229, 184, 75, 0.22);
+      border-radius: 12px;
+      padding: 9px 12px;
+    }
+    .prayer-row.next {
+      background-color: rgba(6, 78, 59, 0.85);
+      border: 1.6px solid #E5B84B;
+    }
+    .prayer-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #F3F8F5;
+    }
+    .prayer-de {
+      font-size: 11px;
+      color: #A9C3B9;
+    }
+    .prayer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prayer-hhmm {
+      font-family: monospace;
+      font-size: 17px;
+      font-weight: 800;
+      color: #F6D985;
+    }
+    .alarm-toggle {
+      width: 22px;
+      height: 22px;
+      accent-color: #34D399;
+      cursor: pointer;
+    }
+    .prereminder-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .prereminder-select {
+      background-color: #071B15;
+      color: #F6D985;
+      border: 1px solid rgba(229, 184, 75, 0.55);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    #map {
+      width: 100%;
+      height: 280px;
+      border-radius: 18px;
+      border: 1px solid rgba(229, 184, 75, 0.5);
+      background-color: #0D2920;
+      overflow: hidden;
+    }
+    .osm-footer {
+      text-align: center;
+      font-size: 12px;
+      color: #F3F8F5;
+      background-color: rgba(19, 56, 44, 0.8);
+      padding: 8px 10px;
+      border-radius: 10px;
+    }
+    .osm-footer a {
+      color: #F6D985;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 1. Kopfzeile -->
+    <div class="header card-block">
+      <div>
+        <h1 class="title">Kaaba Finder</h1>
+        <p class="sub" id="coordText">Kaaba: 21,4225° N, 39,8262° O</p>
+      </div>
+      <div class="qibla-badge">
+        <div style="font-size:11px;color:#F6D985;">Qibla-Winkel</div>
+        <div class="qibla-deg" id="qiblaVal">136,5°</div>
+      </div>
+    </div>
+
+    <!-- 2. Sensor-Genauigkeit -->
+    <div class="status-row card-block">
+      <div class="chip">GPS-Genauigkeit <strong id="gpsAcc">Bereit (Tippen)</strong></div>
+      <div class="chip">Kompass &amp; Deklination <strong id="compAcc">Bereit</strong></div>
+    </div>
+
+    <!-- 3. Aktions-Buttons -->
+    <div class="btn-row card-block">
+      <button type="button" class="btn-primary" id="startSensorsBtn" onclick="enableSensors()">GPS &amp; Kompass starten</button>
+      <button type="button" class="btn-secondary" onclick="toggleManualBox()">Standort manuell</button>
+    </div>
+
+    <!-- Optionale Manuelle Koordinateneingabe (wichtig bei lokal geöffneten Dateien file://) -->
+    <div class="manual-box card-block" id="manualBox">
+      <div style="font-size:13px;font-weight:700;color:#F6D985;margin-bottom:8px;">Standort setzen (falls Browser lokal GPS blockiert)</div>
+      <div class="input-grid">
+        <input type="text" id="latInput" value="52.5200" placeholder="Breitengrad (z.B. 52.52)" />
+        <input type="text" id="lonInput" value="13.4050" placeholder="Längengrad (z.B. 13.40)" />
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn-primary" onclick="applyManualCoords()">Übernehmen</button>
+        <button type="button" class="btn-secondary" onclick="setPresetCity(52.5200, 13.4050)">Berlin</button>
+        <button type="button" class="btn-secondary" onclick="setPresetCity(50.9413, 6.9583)">Köln</button>
+        <button type="button" class="btn-secondary" onclick="setPresetCity(48.1351, 11.5820)">München</button>
+      </div>
+    </div>
+
+    <!-- 4. Grünes STOPP-Signal bei <= 3° Abweichung -->
+    <div class="stop-banner card-block" id="stopBanner">
+      <div class="green-icon">&#10003;</div>
+      <div>
+        <div style="font-weight:800;font-size:16px;color:#FFFFFF;">STOPP! Du bist jetzt in der richtigen Gebetsrichtung.</div>
+        <div style="font-size:12px;color:#34D399;margin-top:2px;">Abweichung höchstens 3° zur Kaaba in Mekka.</div>
+      </div>
+    </div>
+
+    <!-- 5. Dreh-Anweisung -->
+    <div class="guidance-banner card-block" id="guidanceBanner">
+      Tippe oben auf „GPS &amp; Kompass starten“ oder drehe dein Smartphone Richtung Qibla.
+    </div>
+
+    <!-- 6. Großer Digitaler Qibla-Kompass -->
+    <div class="compass-wrap card-block">
+      <canvas id="compass" width="560" height="560"></canvas>
+    </div>
+
+    <!-- 7. Prüf-Drehregler (ideal zum sofortigen Testen im Desktop-/Datei-Browser ohne Sensor) -->
+    <div class="slider-card card-block">
+      <label for="headingSlider" id="sliderLabel">Blickrichtung prüfen / simulieren: 0,0° (für Browser ohne Live-Kompass)</label>
+      <input type="range" id="headingSlider" min="0" max="360" step="0.5" value="0" oninput="onSliderHeading(this.value)" />
+    </div>
+
+    <!-- 8. Diyanet 5 Gebetszeiten + Live-Countdown + Kurzer Ezan-Ton -->
+    <div class="prayer-card card-block" id="diyanetCard">
+      <div class="prayer-top">
+        <div>
+          <h2 class="prayer-title">Diyanet Gebetszeiten</h2>
+          <div class="prayer-sub" id="prayerSourceInfo">5 Gebete nach GPS-Standort (Diyanet Methode 13)</div>
+        </div>
+        <div class="countdown-pill">
+          <div class="countdown-label" id="nextPrayerLabel">Nächstes Gebet</div>
+          <div class="countdown-time" id="nextPrayerCountdown">--:--:--</div>
+        </div>
+      </div>
+
+      <div class="prayer-list" id="prayerListContainer"></div>
+
+      <div class="prereminder-row">
+        <span style="font-size:12px;color:#F6D985;font-weight:600;">Vorwarnung:</span>
+        <select id="preReminderSelect" class="prereminder-select" onchange="onPreReminderChange(this.value)">
+          <option value="0">Aus (Nur zur Gebetszeit)</option>
+          <option value="10">10 Min. vorher</option>
+          <option value="15">15 Min. vorher</option>
+          <option value="30">30 Min. vorher</option>
+        </select>
+        <button type="button" class="btn-primary" style="min-height:38px;padding:8px 12px;font-size:13px;" onclick="playShortEzanTone(true)">Ezan-Ton testen</button>
+      </div>
+    </div>
+
+    <!-- 9. OpenStreetMap + Leaflet Karte -->
+    <div id="map" class="card-block"></div>
+
+    <!-- 9b. Button "Raum" unter der OSM-Karte -->
+    <div class="btn-row card-block">
+      <button type="button" class="btn-secondary" id="inBuildingBtn" onclick="toggleIndoorRoomCard()">Raum</button>
+    </div>
+
+    <!-- Quadratischer Quader-Raum mit Gebetsteppich & kniender Person relativ zur Smartphone-Ausrichtung -->
+    <div class="manual-box card-block" id="indoorRoomCard" style="text-align:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:15px;font-weight:700;color:#F6D985;">Ausrichtung im Gebäude</span>
+        <span id="indoorAngleBadge" style="font-family:monospace;font-size:14px;font-weight:800;color:#34D399;">Qibla 136,5°</span>
+      </div>
+      <div style="font-size:12px;color:#A9C3B9;margin-bottom:8px;">
+        Realer Hauswand-Winkel automatisch aus OpenStreetMap geladen, damit die linke Wand parallel zu deiner echten Wand steht.
+      </div>
+      <div id="indoorZeroVisorText" style="font-family:monospace;font-size:13px;font-weight:800;color:#34D399;background:#071B15;border:1px solid #34D399;border-radius:10px;padding:7px 10px;margin-bottom:8px;">
+        0,0° EXAKT — Smartphone-Oberseite zeigt präzise nach Kaaba
+      </div>
+      <div id="osmWallStatusBadge" style="font-size:12px;color:#38BDF8;font-weight:600;margin-bottom:8px;">
+        OpenStreetMap-Gebäudegrundriss wird geprüft… (Standard 0,0°)
+      </div>
+      <canvas id="indoorRoomCanvas" width="520" height="520" style="width:100%;max-width:340px;aspect-ratio:1/1;border-radius:16px;border:2px solid #E5B84B;display:block;margin:0 auto;"></canvas>
+      <div style="margin-top:10px;padding:10px;background:#09261D;border:1px solid rgba(56,189,248,0.4);border-radius:12px;text-align:left;">
+        <div style="font-size:13px;font-weight:700;color:#F6D985;margin-bottom:4px;">1-Klick Wand-Kalibrierung (gegen Stahlbeton)</div>
+        <div style="font-size:11px;color:#A9C3B9;margin-bottom:8px;">
+          Halte die lange linke Seite des Smartphones kurz parallel an eine echte Zimmerwand und tippe auf Kalibrieren:
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn-primary" style="flex:1;min-height:38px;padding:8px 10px;font-size:12px;" onclick="calibrateBrowserWall()">An realer Wand kalibrieren</button>
+          <button type="button" id="resetWallCalBtn" class="btn-secondary" style="display:none;min-height:38px;padding:8px 10px;font-size:12px;" onclick="resetBrowserWallCalibration()">Zurücksetzen</button>
+        </div>
+        <div id="indoorWallOffsetText" style="display:none;margin-top:6px;font-family:monospace;font-size:12px;color:#34D399;font-weight:700;"></div>
+      </div>
+    </div>
+
+    <!-- 10. Sichtbare OpenStreetMap-Lizenz -->
+    <div class="osm-footer">
+      Kartendaten: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap contributors</a>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var KAABA_LAT = 21.4225;
+    var KAABA_LON = 39.8262;
+    var userLat = 52.5200;
+    var userLon = 13.4050;
+    var qiblaDeg = 136.5;
+    var rawTrueHeading = 0.0;
+    var trueHeading = 0.0;
+    var hasLiveHeading = false;
+    var magDeclination = 4.5;
+    var buildingWallDeg = 0.0;
+    var osmBuildingDetected = false;
+    var indoorCompassOffsetDeg = 0.0;
+    var map = null;
+    var userMarker = null;
+    var qiblaLine = null;
+    var nearArrowHead = null;
+
+    // Diyanet Gebetszeiten Zustand
+    var PRAYER_META = [
+      { key: 'SABAH', tr: 'Sabah (İmsak)', de: 'Morgengebet', obligatory: true },
+      { key: 'GUNES', tr: 'Güneş', de: 'Sonnenaufgang (Info)', obligatory: false },
+      { key: 'OGLE',  tr: 'Öğle', de: 'Mittagsgebet', obligatory: true },
+      { key: 'IKINDI',tr: 'İkindi', de: 'Nachmittagsgebet', obligatory: true },
+      { key: 'AKSAM', tr: 'Akşam', de: 'Abendgebet', obligatory: true },
+      { key: 'YATSI', tr: 'Yatsı', de: 'Nachtgebet', obligatory: true }
+    ];
+    var currentTimings = { SABAH: '05:30', GUNES: '07:05', OGLE: '12:15', IKINDI: '14:55', AKSAM: '17:15', YATSI: '18:50' };
+    var enabledPrayers = { SABAH: true, OGLE: true, IKINDI: true, AKSAM: true, YATSI: true };
+    var preReminderMinutes = 0;
+    var firedAlertsMap = {};
+    var audioCtx = null;
+
+    try {
+      var savedEnabled = localStorage.getItem('kf_diyanet_enabled');
+      if (savedEnabled) enabledPrayers = JSON.parse(savedEnabled);
+      var savedPre = parseInt(localStorage.getItem('kf_diyanet_pre') || '0', 10);
+      if (!isNaN(savedPre)) {
+        preReminderMinutes = savedPre;
+        document.getElementById('preReminderSelect').value = String(savedPre);
+      }
+    } catch (e) {}
+
+    function calcQibla(lat, lon) {
+      var p1 = lat * Math.PI / 180.0;
+      var p2 = KAABA_LAT * Math.PI / 180.0;
+      var dl = (KAABA_LON - lon) * Math.PI / 180.0;
+      var y = Math.sin(dl) * Math.cos(p2);
+      var x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+      return (Math.atan2(y, x) * 180.0 / Math.PI + 360.0) % 360.0;
+    }
+
+    function projectPointMeters(lat, lon, bearingDeg, distMeters) {
+      var angularDist = (distMeters / 1000.0) / 6371.0088;
+      var brng = bearingDeg * Math.PI / 180.0;
+      var lat1 = lat * Math.PI / 180.0;
+      var lon1 = lon * Math.PI / 180.0;
+      var sinLat2 = Math.sin(lat1) * Math.cos(angularDist) + Math.cos(lat1) * Math.sin(angularDist) * Math.cos(brng);
+      var lat2 = Math.asin(Math.max(-1, Math.min(1, sinLat2)));
+      var lon2 = lon1 + Math.atan2(
+        Math.sin(brng) * Math.sin(angularDist) * Math.cos(lat1),
+        Math.cos(angularDist) - Math.sin(lat1) * Math.sin(lat2)
+      );
+      return [lat2 * 180.0 / Math.PI, lon2 * 180.0 / Math.PI];
+    }
+
+    function approxDeclination(lat, lon) {
+      return Math.max(-25, Math.min(25, 0.14 * lon + 0.04 * (lat - 30)));
+    }
+
+    function shortestDelta(current, target) {
+      var d = (target - current + 540.0) % 360.0 - 180.0;
+      return d === -180.0 ? 180.0 : d;
+    }
+
+    // Astronomische Offline-Diyanet-Berechnung (18° Fajr, 17° Isha + Diyanet Temkin-Minuten)
+    function computeOfflineDiyanetTimings(lat, lon) {
+      var now = new Date();
+      var year = now.getFullYear(), month = now.getMonth() + 1, day = now.getDate();
+      var y = year, m = month;
+      if (m <= 2) { y -= 1; m += 12; }
+      var a = Math.floor(y / 100);
+      var b = 2 - a + Math.floor(a / 4);
+      var jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + b - 1524.5 - lon / 360.0;
+      var d = jd - 2451545.0;
+      var g = ((357.529 + 0.98560028 * d) % 360 + 360) % 360;
+      var q = ((280.459 + 0.98564736 * d) % 360 + 360) % 360;
+      var l = ((q + 1.915 * Math.sin(g * Math.PI / 180) + 0.020 * Math.sin(2 * g * Math.PI / 180)) % 360 + 360) % 360;
+      var e = 23.439 - 0.00000036 * d;
+      var ra = Math.atan2(Math.cos(e * Math.PI / 180) * Math.sin(l * Math.PI / 180), Math.cos(l * Math.PI / 180)) * 12 / Math.PI;
+      ra = ((ra % 24) + 24) % 24;
+      var decl = Math.asin(Math.sin(e * Math.PI / 180) * Math.sin(l * Math.PI / 180)) * 180 / Math.PI;
+      var eqT = q / 15.0 - ra;
+      if (eqT > 12) eqT -= 24;
+      if (eqT < -12) eqT += 24;
+
+      var tzHours = -now.getTimezoneOffset() / 60.0;
+      var dhuhr = 12.0 + tzHours - (lon / 15.0) - eqT;
+
+      function ha(alt) {
+        var denom = Math.cos(lat * Math.PI / 180) * Math.cos(decl * Math.PI / 180);
+        if (Math.abs(denom) < 1e-7) return null;
+        var c = (Math.sin(alt * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(decl * Math.PI / 180)) / denom;
+        if (c < -1 || c > 1) return null;
+        return Math.acos(c) * 180 / Math.PI / 15.0;
+      }
+
+      var srDiff = ha(-0.833) || 6.0;
+      var sunrise = dhuhr - srDiff;
+      var sunset = dhuhr + srDiff;
+      var night = ((24.0 - (sunset - sunrise)) + 24.0) % 24.0;
+      var fajrD = ha(-18.0);
+      var fajr = fajrD !== null ? (dhuhr - fajrD) : (sunrise - night * 0.30);
+      var ishaD = ha(-17.0);
+      var isha = ishaD !== null ? (dhuhr + ishaD) : (sunset + night * (17.0 / 60.0));
+      var asrAlt = Math.atan(1.0 / (1.0 + Math.tan(Math.abs(lat - decl) * Math.PI / 180))) * 180 / Math.PI;
+      var asr = dhuhr + (ha(asrAlt) || 3.0);
+
+      function fmt(hVal) {
+        var mins = ((Math.round(hVal * 60) % 1440) + 1440) % 1440;
+        var hh = Math.floor(mins / 60), mm = mins % 60;
+        return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+      }
+
+      return {
+        SABAH: fmt(fajr),
+        GUNES: fmt(sunrise - 7 / 60.0),
+        OGLE:  fmt(dhuhr + 5 / 60.0),
+        IKINDI:fmt(asr + 4 / 60.0),
+        AKSAM: fmt(sunset + 7 / 60.0),
+        YATSI: fmt(isha)
+      };
+    }
+
+    function fetchDiyanetTimings(lat, lon) {
+      currentTimings = computeOfflineDiyanetTimings(lat, lon);
+      document.getElementById('prayerSourceInfo').textContent =
+        'Diyanet Berechnung (' + lat.toFixed(2) + '°, ' + lon.toFixed(2) + '°) – lade Online-Datenbank…';
+      renderPrayerList();
+
+      var now = new Date();
+      var dd = ('0' + now.getDate()).slice(-2);
+      var mm = ('0' + (now.getMonth() + 1)).slice(-2);
+      var yyyy = now.getFullYear();
+      var apiUrl = 'https://api.aladhan.com/v1/timings/' + dd + '-' + mm + '-' + yyyy +
+        '?latitude=' + lat.toFixed(5) + '&longitude=' + lon.toFixed(5) + '&method=13';
+
+      if (typeof fetch === 'function') {
+        fetch(apiUrl).then(function(r) { return r.json(); }).then(function(res) {
+          if (res && res.data && res.data.timings) {
+            var t = res.data.timings;
+            function clean(s) { return String(s || '00:00').split(' ')[0]; }
+            currentTimings = {
+              SABAH: clean(t.Fajr || t.Imsak),
+              GUNES: clean(t.Sunrise),
+              OGLE:  clean(t.Dhuhr),
+              IKINDI:clean(t.Asr),
+              AKSAM: clean(t.Maghrib),
+              YATSI: clean(t.Isha)
+            };
+            document.getElementById('prayerSourceInfo').textContent =
+              'Quelle: Diyanet Datenbank Online (' + dd + '.' + mm + '.' + yyyy + ')';
+            renderPrayerList();
+          }
+        }).catch(function() {
+          document.getElementById('prayerSourceInfo').textContent =
+            'Quelle: Diyanet Offline-Berechnung (' + dd + '.' + mm + '.' + yyyy + ')';
+        });
+      }
+    }
+
+    function getNextPrayerInfo() {
+      var now = new Date();
+      var nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      var oblig = ['SABAH', 'OGLE', 'IKINDI', 'AKSAM', 'YATSI'];
+      for (var i = 0; i < oblig.length; i++) {
+        var k = oblig[i];
+        var parts = (currentTimings[k] || '00:00').split(':');
+        var pSec = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60;
+        if (pSec > nowSec) {
+          return { key: k, time: currentTimings[k], remSec: pSec - nowSec };
+        }
+      }
+      var sParts = (currentTimings.SABAH || '05:30').split(':');
+      var sSec = parseInt(sParts[0], 10) * 3600 + parseInt(sParts[1], 10) * 60;
+      return { key: 'SABAH', time: currentTimings.SABAH, remSec: (86400 - nowSec) + sSec };
+    }
+
+    function renderPrayerList() {
+      var nextInfo = getNextPrayerInfo();
+      var container = document.getElementById('prayerListContainer');
+      var html = '';
+      for (var i = 0; i < PRAYER_META.length; i++) {
+        var m = PRAYER_META[i];
+        var isNext = m.obligatory && (m.key === nextInfo.key);
+        var hhmm = currentTimings[m.key] || '--:--';
+        var toggleHtml = '';
+        if (m.obligatory) {
+          var checked = enabledPrayers[m.key] !== false ? 'checked' : '';
+          toggleHtml = '<input type="checkbox" class="alarm-toggle" title="Erinnerung" ' + checked +
+            ' onchange="toggleSinglePrayer(\'' + m.key + '\', this.checked)" />';
+        }
+        html += '<div class="prayer-row' + (isNext ? ' next' : '') + '">' +
+          '<div><div class="prayer-name">' + m.tr + (isNext ? ' • Als Nächstes' : '') + '</div>' +
+          '<div class="prayer-de">' + m.de + '</div></div>' +
+          '<div class="prayer-right"><span class="prayer-hhmm">' + hhmm + '</span>' + toggleHtml + '</div>' +
+          '</div>';
+      }
+      container.innerHTML = html;
+      updatePrayerCountdownTick();
+    }
+
+    function toggleSinglePrayer(key, enabled) {
+      enabledPrayers[key] = enabled;
+      try { localStorage.setItem('kf_diyanet_enabled', JSON.stringify(enabledPrayers)); } catch (e) {}
+      if (enabled && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    function onPreReminderChange(val) {
+      preReminderMinutes = parseInt(val || '0', 10) || 0;
+      try { localStorage.setItem('kf_diyanet_pre', String(preReminderMinutes)); } catch (e) {}
+    }
+
+    // Kurzer melodischer Ezan-Klang (Maqam Hijaz) direkt im Browser via Web Audio API
+    function playShortEzanTone(requestPerm) {
+      if (requestPerm && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!audioCtx) audioCtx = new Ctx();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        var notes = [
+          [293.66, 0.38], [392.00, 0.48], [440.00, 0.68], [392.00, 0.34], [369.99, 0.75],
+          [0, 0.14],
+          [392.00, 0.35], [440.00, 0.45], [369.99, 0.42], [311.13, 0.38], [293.66, 0.90]
+        ];
+        var t = audioCtx.currentTime + 0.04;
+        for (var i = 0; i < notes.length; i++) {
+          var freq = notes[i][0], dur = notes[i][1];
+          if (freq > 0) {
+            var osc = audioCtx.createOscillator();
+            var osc2 = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc2.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            osc2.frequency.setValueAtTime(freq * 2, t);
+            gain.gain.setValueAtTime(0.001, t);
+            gain.gain.linearRampToValueAtTime(0.28, t + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            osc.connect(gain);
+            osc2.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc2.start(t);
+            osc.stop(t + dur);
+            osc2.stop(t + dur);
+          }
+          t += dur;
+        }
+      } catch (e) {}
+    }
+
+    function updatePrayerCountdownTick() {
+      var info = getNextPrayerInfo();
+      var s = info.remSec;
+      var hh = ('0' + Math.floor(s / 3600)).slice(-2);
+      var mm = ('0' + Math.floor((s % 3600) / 60)).slice(-2);
+      var ss = ('0' + (s % 60)).slice(-2);
+      var metaObj = PRAYER_META.filter(function(x) { return x.key === info.key; })[0];
+      document.getElementById('nextPrayerLabel').textContent =
+        (metaObj ? metaObj.tr : info.key) + ' (' + info.time + ')';
+      document.getElementById('nextPrayerCountdown').textContent = hh + ':' + mm + ':' + ss;
+
+      // Prüfe fällige Gebetszeit oder Vorwarnung
+      var now = new Date();
+      var hhNow = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+      var dayStamp = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
+
+      var oblig = ['SABAH', 'OGLE', 'IKINDI', 'AKSAM', 'YATSI'];
+      for (var i = 0; i < oblig.length; i++) {
+        var k = oblig[i];
+        if (enabledPrayers[k] === false) continue;
+        var pTime = currentTimings[k];
+        if (!pTime) continue;
+
+        var mainAlertId = dayStamp + '_' + k + '_MAIN_' + pTime;
+        if (hhNow === pTime && !firedAlertsMap[mainAlertId]) {
+          firedAlertsMap[mainAlertId] = true;
+          triggerBrowserPrayerAlert(k, pTime, false);
+        }
+
+        if (preReminderMinutes > 0) {
+          var pts = pTime.split(':');
+          var preTotal = ((parseInt(pts[0], 10) * 60 + parseInt(pts[1], 10) - preReminderMinutes) % 1440 + 1440) % 1440;
+          var preStr = ('0' + Math.floor(preTotal / 60)).slice(-2) + ':' + ('0' + (preTotal % 60)).slice(-2);
+          var preAlertId = dayStamp + '_' + k + '_PRE_' + preStr;
+          if (hhNow === preStr && !firedAlertsMap[preAlertId]) {
+            firedAlertsMap[preAlertId] = true;
+            triggerBrowserPrayerAlert(k, pTime, true);
+          }
+        }
+      }
+    }
+
+    function triggerBrowserPrayerAlert(key, pTime, isPre) {
+      playShortEzanTone(false);
+      var metaObj = PRAYER_META.filter(function(x) { return x.key === key; })[0];
+      var name = metaObj ? metaObj.tr : key;
+      var title = isPre ? ('Vorwarnung: ' + name + ' in ' + preReminderMinutes + ' Min.') : ('Gebetszeit: ' + name + ' (' + pTime + ' Uhr)');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification(title, { body: 'Diyanet Gebetszeit am aktuellen Standort.' }); } catch (e) {}
+      }
+    }
+
+    function applyCoordinates(lat, lon, accLabel) {
+      userLat = lat;
+      userLon = lon;
+      magDeclination = approxDeclination(lat, lon);
+      qiblaDeg = calcQibla(lat, lon);
+      document.getElementById('qiblaVal').textContent = qiblaDeg.toFixed(1).replace('.', ',') + '°';
+      document.getElementById('coordText').textContent =
+        'Standort: ' + lat.toFixed(4) + '°, ' + lon.toFixed(4) + '°';
+      if (accLabel) {
+        document.getElementById('gpsAcc').textContent = accLabel;
+      }
+      fetchDiyanetTimings(lat, lon);
+      fetchOsmBuildingWallAngle(lat, lon);
+      updateMapOverlays(true);
+      renderUI();
+    }
+
+    function computeDominantWallAngleFromNodes(nodes, refLat) {
+      if (!nodes || nodes.length < 2) return null;
+      var cosLat = Math.max(0.01, Math.cos(refLat * Math.PI / 180.0));
+      var sumSin4 = 0.0, sumCos4 = 0.0, totalLen = 0.0;
+      for (var i = 0; i < nodes.length - 1; i++) {
+        var a = nodes[i], b = nodes[i + 1];
+        var dNorth = (b.lat - a.lat) * 111320.0;
+        var dEast = (b.lon - a.lon) * 111320.0 * cosLat;
+        var segLen = Math.hypot(dEast, dNorth);
+        if (segLen < 0.6) continue;
+        var brng = (Math.atan2(dEast, dNorth) * 180.0 / Math.PI + 360.0) % 360.0;
+        var fourRad = 4.0 * brng * Math.PI / 180.0;
+        sumSin4 += segLen * Math.sin(fourRad);
+        sumCos4 += segLen * Math.cos(fourRad);
+        totalLen += segLen;
+      }
+      if (totalLen < 1.0) return null;
+      var dom = (Math.atan2(sumSin4, sumCos4) * 180.0 / Math.PI) / 4.0;
+      while (dom <= -45.0) dom += 90.0;
+      while (dom > 45.0) dom -= 90.0;
+      return dom;
+    }
+
+    function fetchOsmBuildingWallAngle(lat, lon) {
+      if (typeof fetch !== 'function') return;
+      var statusEl = document.getElementById('osmWallStatusBadge');
+      var query = '[out:json][timeout:8];(way(around:45,' + lat.toFixed(6) + ',' + lon.toFixed(6) + ')["building"];);out geom;';
+      var endpoints = [
+        'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query),
+        'https://overpass.kumi.systems/api/interpreter?data=' + encodeURIComponent(query)
+      ];
+
+      function tryEndpoint(idx) {
+        if (idx >= endpoints.length) {
+          if (!osmBuildingDetected && statusEl) {
+            statusEl.textContent = 'Hauswand-Ausrichtung: Nord-Süd-Standard (0,0°)';
+          }
+          return;
+        }
+        fetch(endpoints[idx]).then(function(r) { return r.json(); }).then(function(data) {
+          if (!data || !data.elements || !data.elements.length) {
+            osmBuildingDetected = false;
+            buildingWallDeg = 0.0;
+            if (statusEl) statusEl.textContent = 'Kein OSM-Gebäudegrundriss direkt am Punkt – Standard 0,0°';
+            drawIndoorSquareRoom();
+            return;
+          }
+          var bestWay = data.elements[0];
+          var bestDist = 1e9;
+          var cosLat = Math.max(0.01, Math.cos(lat * Math.PI / 180.0));
+          for (var w = 0; w < data.elements.length; w++) {
+            var geom = data.elements[w].geometry;
+            if (!geom || geom.length < 3) continue;
+            for (var k = 0; k < geom.length; k++) {
+              var dy = (geom[k].lat - lat) * 111320.0;
+              var dx = (geom[k].lon - lon) * 111320.0 * cosLat;
+              var d = Math.hypot(dx, dy);
+              if (d < bestDist) { bestDist = d; bestWay = data.elements[w]; }
+            }
+          }
+          var angle = computeDominantWallAngleFromNodes(bestWay.geometry, lat);
+          if (angle !== null) {
+            buildingWallDeg = angle;
+            osmBuildingDetected = true;
+            var sign = angle >= 0 ? '+' : '';
+            if (statusEl) {
+              statusEl.textContent = 'OSM-Gebäudewand erkannt: ' + sign + angle.toFixed(1).replace('.', ',') + '° zur Nord-Süd-Achse';
+            }
+            drawIndoorSquareRoom();
+          }
+        }).catch(function() {
+          tryEndpoint(idx + 1);
+        });
+      }
+      tryEndpoint(0);
+    }
+
+    function calibrateBrowserWall() {
+      var currentRaw = hasLiveHeading ? rawTrueHeading : qiblaDeg;
+      var diff = currentRaw - buildingWallDeg;
+      var k = Math.round(diff / 90.0);
+      var nearestWall = ((buildingWallDeg + k * 90.0) % 360.0 + 360.0) % 360.0;
+      indoorCompassOffsetDeg = shortestDelta(currentRaw, nearestWall);
+      trueHeading = ((currentRaw + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
+      var offEl = document.getElementById('indoorWallOffsetText');
+      var rstBtn = document.getElementById('resetWallCalBtn');
+      if (offEl) {
+        offEl.style.display = 'block';
+        offEl.textContent = 'Aktive Wand-Korrektur: ' + (indoorCompassOffsetDeg >= 0 ? '+' : '') +
+          indoorCompassOffsetDeg.toFixed(1).replace('.', ',') + '°';
+      }
+      if (rstBtn) rstBtn.style.display = 'inline-block';
+      renderUI();
+    }
+
+    function resetBrowserWallCalibration() {
+      indoorCompassOffsetDeg = 0.0;
+      trueHeading = ((rawTrueHeading % 360.0) + 360.0) % 360.0;
+      var offEl = document.getElementById('indoorWallOffsetText');
+      var rstBtn = document.getElementById('resetWallCalBtn');
+      if (offEl) offEl.style.display = 'none';
+      if (rstBtn) rstBtn.style.display = 'none';
+      renderUI();
+    }
+
+    function drawCompass(aligned) {
+      var c = document.getElementById('compass');
+      if (!c || !c.getContext) return;
+      var ctx = c.getContext('2d');
+      var cx = 280, cy = 280, r = 236;
+      ctx.clearRect(0, 0, 560, 560);
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#13382C';
+      ctx.fill();
+      ctx.lineWidth = aligned ? 9 : 4.5;
+      ctx.strokeStyle = aligned ? '#34D399' : '#E5B84B';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r + 18);
+      ctx.lineTo(cx - 14, cy - r - 6);
+      ctx.lineTo(cx + 14, cy - r - 6);
+      ctx.closePath();
+      ctx.fillStyle = aligned ? '#34D399' : '#38BDF8';
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-trueHeading * Math.PI / 180.0);
+
+      for (var deg = 0; deg < 360; deg += 10) {
+        var rad = (deg - 90) * Math.PI / 180.0;
+        var inner = (deg % 90 === 0) ? (r - 24) : (deg % 30 === 0 ? (r - 16) : (r - 9));
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(rad) * r, Math.sin(rad) * r);
+        ctx.lineTo(Math.cos(rad) * inner, Math.sin(rad) * inner);
+        ctx.strokeStyle = (deg === 0) ? '#F43F5E' : 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = (deg % 30 === 0) ? 3 : 1.5;
+        ctx.stroke();
+      }
+
+      ctx.font = 'bold 28px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var cardinals = [['N', 0, '#F43F5E'], ['O', 90, '#FFFFFF'], ['S', 180, '#FFFFFF'], ['W', 270, '#FFFFFF']];
+      for (var i = 0; i < cardinals.length; i++) {
+        var item = cardinals[i];
+        var cRad = (item[1] - 90) * Math.PI / 180.0;
+        ctx.fillStyle = item[2];
+        ctx.fillText(item[0], Math.cos(cRad) * (r - 48), Math.sin(cRad) * (r - 48));
+      }
+      ctx.restore();
+
+      var relArrow = shortestDelta(trueHeading, qiblaDeg) * Math.PI / 180.0;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(relArrow);
+      ctx.beginPath();
+      ctx.moveTo(0, -r + 56);
+      ctx.lineTo(44, -42);
+      ctx.lineTo(15, -36);
+      ctx.lineTo(12, 96);
+      ctx.lineTo(-12, 96);
+      ctx.lineTo(-15, -36);
+      ctx.lineTo(-44, -42);
+      ctx.closePath();
+      ctx.fillStyle = aligned ? '#34D399' : '#E5B84B';
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+      ctx.fillStyle = '#071B15';
+      ctx.fill();
+      ctx.strokeStyle = aligned ? '#34D399' : '#E5B84B';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+
+    function renderUI() {
+      var delta = shortestDelta(trueHeading, qiblaDeg);
+      var aligned = Math.abs(delta) <= 3.0;
+      var stopEl = document.getElementById('stopBanner');
+      var guideEl = document.getElementById('guidanceBanner');
+
+      if (aligned) {
+        stopEl.className = 'stop-banner card-block active';
+        guideEl.style.display = 'none';
+      } else {
+        stopEl.className = 'stop-banner card-block';
+        guideEl.style.display = 'block';
+        var absStr = Math.abs(delta).toFixed(1).replace('.', ',');
+        if (delta > 0) {
+          guideEl.textContent = 'Drehe das Smartphone um ' + absStr + '° nach rechts';
+        } else {
+          guideEl.textContent = 'Drehe das Smartphone um ' + absStr + '° nach links';
+        }
+      }
+      drawCompass(aligned);
+      drawIndoorSquareRoom();
+      updateMapOverlays(false);
+    }
+
+    function toggleIndoorRoomCard() {
+      var el = document.getElementById('indoorRoomCard');
+      if (el.className.indexOf('open') >= 0) {
+        el.className = 'manual-box card-block';
+      } else {
+        el.className = 'manual-box card-block open';
+        drawIndoorSquareRoom();
+      }
+    }
+
+    function drawIndoorSquareRoom() {
+      var badge = document.getElementById('indoorAngleBadge');
+      if (badge) badge.textContent = 'Qibla ' + qiblaDeg.toFixed(1).replace('.', ',') + '°';
+      var rc = document.getElementById('indoorRoomCanvas');
+      if (!rc || !rc.getContext) return;
+      var ctx = rc.getContext('2d');
+      var S = 520, cx = 260, cy = 260;
+      ctx.clearRect(0, 0, S, S);
+
+      // Dunkler Smaragd-Bühnenhintergrund, damit der gedrehte Quader vollständig sichtbar ist
+      ctx.fillStyle = '#071B15';
+      ctx.fillRect(0, 0, S, S);
+
+      var activeHeading = hasLiveHeading ? trueHeading : qiblaDeg;
+      var personAngleDeg = shortestDelta(activeHeading, qiblaDeg);
+      var roomQuaderAngleDeg = (((buildingWallDeg - activeHeading) % 360.0) + 360.0) % 360.0;
+      var isRoomAligned = Math.abs(personAngleDeg) <= 3.0;
+      var isExactZeroAligned = Math.abs(personAngleDeg) <= 0.5;
+
+      var visorEl = document.getElementById('indoorZeroVisorText');
+      if (visorEl) {
+        if (isExactZeroAligned) {
+          visorEl.style.color = '#34D399';
+          visorEl.style.borderColor = '#34D399';
+          visorEl.textContent = '0,0° EXAKT — Linke Quader-Wand steht parallel zur echten Zimmerwand';
+        } else {
+          visorEl.style.color = isRoomAligned ? '#F6D985' : '#38BDF8';
+          visorEl.style.borderColor = isRoomAligned ? '#E5B84B' : '#38BDF8';
+          var remStr = Math.abs(personAngleDeg).toFixed(1).replace('.', ',');
+          visorEl.textContent = 'Feinausrichtung: noch ' + remStr + '° ' +
+            (personAngleDeg > 0 ? 'nach rechts' : 'nach links') + ' bis exakt 0,0°';
+        }
+      }
+
+      // 1. Gedrehter Quader-Raum (rotiert mit realem OSM-Gebäudewinkel buildingWallDeg - activeHeading)
+      var quaderSide = 336;
+      var halfQ = quaderSide / 2;
+      var wall = 20;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(roomQuaderAngleDeg * Math.PI / 180.0);
+
+      // Quader-Schatten & 3D-Außenmauer
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(-halfQ + 8, -halfQ + 10, quaderSide, quaderSide);
+      ctx.fillStyle = '#EAE4D8';
+      ctx.fillRect(-halfQ, -halfQ, quaderSide, quaderSide);
+      ctx.strokeStyle = '#8F826D';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-halfQ, -halfQ, quaderSide, quaderSide);
+
+      // Linke Referenzwand farblich hervorheben (zum direkten Parallel-Abgleich mit echter Zimmerwand)
+      ctx.fillStyle = isExactZeroAligned ? 'rgba(52, 211, 153, 0.55)' : 'rgba(56, 189, 248, 0.48)';
+      ctx.fillRect(-halfQ, -halfQ, wall, quaderSide);
+
+      // Heller Eichenholzboden im Quader
+      ctx.fillStyle = '#D7B98E';
+      ctx.fillRect(-halfQ + wall, -halfQ + wall, quaderSide - 2 * wall, quaderSide - 2 * wall);
+      ctx.strokeStyle = '#9A7B52';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(-halfQ + wall, -halfQ + wall, quaderSide - 2 * wall, quaderSide - 2 * wall);
+
+      // Quader-Eckfasen (3D-Raumwände)
+      ctx.beginPath();
+      ctx.moveTo(-halfQ, -halfQ); ctx.lineTo(-halfQ + wall, -halfQ + wall);
+      ctx.moveTo(halfQ, -halfQ);  ctx.lineTo(halfQ - wall, -halfQ + wall);
+      ctx.moveTo(halfQ, halfQ);   ctx.lineTo(halfQ - wall, halfQ - wall);
+      ctx.moveTo(-halfQ, halfQ);  ctx.lineTo(-halfQ + wall, halfQ - wall);
+      ctx.stroke();
+
+      // Parkettlinien im Raum
+      ctx.strokeStyle = 'rgba(120, 86, 45, 0.16)';
+      ctx.lineWidth = 1.5;
+      for (var p = -halfQ + wall + 32; p < halfQ - wall; p += 32) {
+        ctx.beginPath(); ctx.moveTo(p, -halfQ + wall); ctx.lineTo(p, halfQ - wall); ctx.stroke();
+      }
+
+      // Mitrotierende Wand-Himmelsrichtungen N / O / S / W
+      ctx.font = 'bold 15px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#B91C1C'; ctx.fillText('N', 0, -halfQ + 10);
+      ctx.fillStyle = '#374151';
+      ctx.fillText('S', 0, halfQ - 10);
+      ctx.fillText('O', halfQ - 10, 0);
+      ctx.fillText('W', -halfQ + 10, 0);
+      ctx.restore();
+
+      // 2. Gestrichelte Leitlinie Richtung Kaaba (bei Ausrichtung direkt nach oben zur Smartphone-Oberkante!)
+      var qScreenRad = (personAngleDeg - 90.0) * Math.PI / 180.0;
+      var tx = cx + Math.cos(qScreenRad) * 212;
+      var ty = cy + Math.sin(qScreenRad) * 212;
+      ctx.save();
+      ctx.setLineDash([12, 8]);
+      ctx.strokeStyle = isRoomAligned ? '#34D399' : '#E5B84B';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.restore();
+
+      // Oberkanten-Hinweis (Smartphone-Oberseite = Kaaba)
+      ctx.fillStyle = isRoomAligned ? '#34D399' : '#38BDF8';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(isRoomAligned ? '▲ Smartphone-Oberseite = Kaaba' : '▲ Smartphone-Oberseite', cx, 22);
+
+      // 3. Gebetsteppich + kniende Person im Bildschirmwinkel zur Kaaba
+      // Bei nach Kaaba ausgerichtetem Smartphone ist personAngleDeg = 0° (schaut nach OBEN!)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(personAngleDeg * Math.PI / 180.0);
+      ctx.scale(0.72, 0.72);
+
+      var rugW = 144, rugH = 232;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(-rugW / 2 + 6, -rugH / 2 + 7, rugW, rugH);
+      ctx.strokeStyle = '#F7F2E4';
+      ctx.lineWidth = 2.5;
+      for (var fi = -56; fi <= 56; fi += 11) {
+        ctx.beginPath(); ctx.moveTo(fi, -rugH / 2); ctx.lineTo(fi, -rugH / 2 - 11); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(fi, rugH / 2); ctx.lineTo(fi, rugH / 2 + 11); ctx.stroke();
+      }
+      ctx.fillStyle = '#0B4635';
+      ctx.fillRect(-rugW / 2, -rugH / 2, rugW, rugH);
+      ctx.strokeStyle = isRoomAligned ? '#34D399' : '#E5B84B';
+      ctx.lineWidth = 3.5;
+      ctx.strokeRect(-rugW / 2 + 11, -rugH / 2 + 11, rugW - 22, rugH - 22);
+      ctx.fillStyle = '#115E46';
+      ctx.fillRect(-rugW / 2 + 18, -rugH / 2 + 18, rugW - 36, rugH - 36);
+      ctx.beginPath();
+      ctx.moveTo(-42, 24);
+      ctx.lineTo(-42, -55);
+      ctx.quadraticCurveTo(-42, -92, 0, -96);
+      ctx.quadraticCurveTo(42, -92, 42, -55);
+      ctx.lineTo(42, 24);
+      ctx.strokeStyle = '#F6D985';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Richtungspfeil vor dem Teppich
+      ctx.strokeStyle = isRoomAligned ? '#34D399' : '#E5B84B';
+      ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(0, -rugH / 2 - 16); ctx.lineTo(0, -rugH / 2 - 54); ctx.stroke();
+      ctx.fillStyle = isRoomAligned ? '#34D399' : '#E5B84B';
+      ctx.beginPath();
+      ctx.moveTo(0, -rugH / 2 - 68);
+      ctx.lineTo(-14, -rugH / 2 - 46);
+      ctx.lineTo(14, -rugH / 2 - 46);
+      ctx.closePath();
+      ctx.fill();
+
+      // Kniender Mann auf dem Gebetsteppich
+      var py = 20;
+      ctx.fillStyle = '#DCD5C7';
+      ctx.fillRect(-34, py - 4, 26, 52);
+      ctx.fillRect(8, py - 4, 26, 52);
+      ctx.fillStyle = '#CBBFA9';
+      ctx.beginPath(); ctx.ellipse(-21, py + 44, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(21, py + 44, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ECE7DC';
+      ctx.fillRect(-40, py - 32, 18, 36);
+      ctx.fillRect(22, py - 32, 18, 36);
+      ctx.fillStyle = '#D9A982';
+      ctx.beginPath(); ctx.arc(-29, py - 33, 7.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(29, py - 33, 7.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#F7F4EC';
+      ctx.strokeStyle = '#C8C0B0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, py + 2, 42, 24, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#D9A982';
+      ctx.beginPath();
+      ctx.moveTo(0, py - 38);
+      ctx.lineTo(-7, py - 24);
+      ctx.lineTo(7, py - 24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#2C3531';
+      ctx.beginPath(); ctx.arc(0, py - 10, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FBF9F5';
+      ctx.beginPath(); ctx.arc(0, py - 8, 18.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    function initLeafletIfAvailable() {
+      if (typeof window.L === 'undefined') {
+        document.getElementById('map').innerHTML =
+          '<div style="padding:24px;text-align:center;color:#F6D985;">Bitte stelle eine Internetverbindung her, um die OpenStreetMap-Kartenkacheln zu laden. Der Qibla-Kompass und die Diyanet-Gebetszeiten oben funktionieren auch offline.</div>';
+        return;
+      }
+
+      map = L.map('map', { attributionControl: true }).setView([userLat, userLon], 17);
+
+      var osmProviders = [
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+        'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
+      ];
+      var providerIdx = 0;
+      var errCount = 0;
+      var currentTileLayer = null;
+
+      function loadTileLayer() {
+        if (currentTileLayer) map.removeLayer(currentTileLayer);
+        currentTileLayer = L.tileLayer(osmProviders[providerIdx], {
+          maxZoom: 19,
+          minZoom: 2,
+          updateWhenIdle: true,
+          updateWhenZooming: false,
+          keepBuffer: 1,
+          referrerPolicy: 'strict-origin-when-cross-origin',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        });
+        currentTileLayer.on('tileerror', function() {
+          if (providerIdx < osmProviders.length - 1) {
+            errCount++;
+            if (errCount >= 2) {
+              errCount = 0;
+              providerIdx++;
+              loadTileLayer();
+            }
+          }
+        });
+        currentTileLayer.addTo(map);
+      }
+      loadTileLayer();
+
+      L.marker([KAABA_LAT, KAABA_LON]).addTo(map).bindPopup('<b>Kaaba in Mekka</b><br>21,4225° N, 39,8262° O');
+      updateMapOverlays(true);
+    }
+
+    function updateMapOverlays(recenter) {
+      if (!map || typeof window.L === 'undefined') return;
+      var pos = [userLat, userLon];
+      var aligned = Math.abs(shortestDelta(trueHeading, qiblaDeg)) <= 3.0;
+      var arrowColor = aligned ? '#34D399' : '#E5B84B';
+
+      if (!userMarker) {
+        userMarker = L.marker(pos).addTo(map).bindPopup('<b>Mein Standort</b>');
+      } else {
+        userMarker.setLatLng(pos);
+      }
+
+      if (!qiblaLine) {
+        qiblaLine = L.polyline([pos, [KAABA_LAT, KAABA_LON]], { color: arrowColor, weight: 5 }).addTo(map);
+      } else {
+        qiblaLine.setLatLngs([pos, [KAABA_LAT, KAABA_LON]]);
+        qiblaLine.setStyle({ color: arrowColor });
+      }
+
+      var tip = projectPointMeters(userLat, userLon, qiblaDeg, 90);
+      var leftW = projectPointMeters(tip[0], tip[1], (qiblaDeg + 150) % 360, 26);
+      var rightW = projectPointMeters(tip[0], tip[1], (qiblaDeg + 210) % 360, 26);
+      if (!nearArrowHead) {
+        nearArrowHead = L.polygon([tip, leftW, rightW], {
+          color: '#FFFFFF',
+          weight: 2,
+          fillColor: arrowColor,
+          fillOpacity: 1.0
+        }).addTo(map);
+      } else {
+        nearArrowHead.setLatLngs([tip, leftW, rightW]);
+        nearArrowHead.setStyle({ fillColor: arrowColor });
+      }
+
+      if (recenter) {
+        map.setView(pos, 17, { animate: false });
+      }
+    }
+
+    function toggleManualBox() {
+      var box = document.getElementById('manualBox');
+      if (box.className.indexOf('open') >= 0) {
+        box.className = 'manual-box card-block';
+      } else {
+        box.className = 'manual-box card-block open';
+      }
+    }
+
+    function setPresetCity(lat, lon) {
+      document.getElementById('latInput').value = lat.toFixed(4);
+      document.getElementById('lonInput').value = lon.toFixed(4);
+      applyCoordinates(lat, lon, 'Manuell gesetzt');
+    }
+
+    function applyManualCoords() {
+      var lat = parseFloat(document.getElementById('latInput').value.replace(',', '.'));
+      var lon = parseFloat(document.getElementById('lonInput').value.replace(',', '.'));
+      if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        applyCoordinates(lat, lon, 'Manuell gesetzt');
+        toggleManualBox();
+      }
+    }
+
+    function onSliderHeading(val) {
+      hasLiveHeading = true;
+      rawTrueHeading = parseFloat(val) || 0;
+      trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
+      document.getElementById('sliderLabel').textContent =
+        'Blickrichtung prüfen / simulieren: ' + trueHeading.toFixed(1).replace('.', ',') + '° (Ziel Qibla: ' + qiblaDeg.toFixed(1).replace('.', ',') + '°)';
+      renderUI();
+    }
+
+    function enableSensors() {
+      // Entsperrt Web-Audio unter iOS/Android direkt beim Tippen
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx && !audioCtx) audioCtx = new Ctx();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      } catch (e) {}
+
+      if (navigator.geolocation) {
+        document.getElementById('gpsAcc').textContent = 'Suche GPS…';
+        navigator.geolocation.watchPosition(
+          function(pos) {
+            applyCoordinates(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              '±' + Math.round(pos.coords.accuracy) + ' m'
+            );
+          },
+          function() {
+            document.getElementById('gpsAcc').textContent = 'Blockiert (Manuell nutzen)';
+            var box = document.getElementById('manualBox');
+            box.className = 'manual-box card-block open';
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        document.getElementById('gpsAcc').textContent = 'Nicht verfügbar';
+      }
+
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(function(state) {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+          } else {
+            document.getElementById('compAcc').textContent = 'Abgelehnt (Regler nutzen)';
+          }
+        }).catch(function() {
+          document.getElementById('compAcc').textContent = 'HTTPS für iOS-Sensor nötig';
+        });
+      } else {
+        window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+        window.addEventListener('deviceorientation', handleOrientation, true);
+      }
+    }
+
+    function handleOrientation(e) {
+      if (typeof e.webkitCompassHeading === 'number') {
+        hasLiveHeading = true;
+        rawTrueHeading = e.webkitCompassHeading;
+        trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
+        var acc = e.webkitCompassAccuracy;
+        document.getElementById('compAcc').textContent = (acc && acc > 0) ? ('iOS ±' + Math.round(acc) + '°') : 'Aktiv (iOS)';
+      } else if (e.alpha !== null && typeof e.alpha === 'number') {
+        hasLiveHeading = true;
+        var magHeading = (360.0 - e.alpha) % 360.0;
+        rawTrueHeading = (magHeading + magDeclination + 360.0) % 360.0;
+        trueHeading = ((rawTrueHeading + indoorCompassOffsetDeg) % 360.0 + 360.0) % 360.0;
+        document.getElementById('compAcc').textContent =
+          'Aktiv (Dekl. ' + (magDeclination >= 0 ? '+' : '') + magDeclination.toFixed(1) + '°)';
+      } else {
+        return;
+      }
+      document.getElementById('headingSlider').value = Math.round(trueHeading);
+      document.getElementById('sliderLabel').textContent =
+        'Live-Smartphone-Kompass: ' + trueHeading.toFixed(1).replace('.', ',') + '°';
+      renderUI();
+    }
+
+    // Sofort beim Öffnen Kompass, Qibla-Winkel, Diyanet-Gebetszeiten, OSM-Hauswandwinkel und Karte initialisieren!
+    qiblaDeg = calcQibla(userLat, userLon);
+    document.getElementById('qiblaVal').textContent = qiblaDeg.toFixed(1).replace('.', ',') + '°';
+    fetchDiyanetTimings(userLat, userLon);
+    fetchOsmBuildingWallAngle(userLat, userLon);
+    setInterval(updatePrayerCountdownTick, 1000);
+    renderUI();
+    initLeafletIfAvailable();
+  </script>
+</body>
+</html>
